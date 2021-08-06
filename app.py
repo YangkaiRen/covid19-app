@@ -63,7 +63,7 @@ fig1 = px.scatter_mapbox(df_us_latest, lat='lat', lon='lon', hover_name='provinc
                         color_discrete_sequence=["fuchsia"], zoom=3, title="US Covid19", 
                         color='risk_level', mapbox_style="open-street-map")
 
-
+st.title("COVID-19 dashboard")
 st.plotly_chart(fig1)
 
 
