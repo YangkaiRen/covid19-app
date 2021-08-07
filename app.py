@@ -6,18 +6,14 @@ import pandas as pd
 import pymysql
 import streamlit as st
 from datetime import datetime
-import plotly.express as px 
+import plotly.express as px
 from dataprocessor import get_config
-from prophet import Prophet
-from prophet.plot import plot_plotly
-
 
 db = get_config()
 
-def query_db(sql: str, db = db):
 
+def query_db(sql: str, db=db):
     with pymysql.connect(**db) as conn:
-
         # Open a cursor to perform database operations
         cur = conn.cursor()
 
@@ -26,7 +22,7 @@ def query_db(sql: str, db = db):
 
         # Obtain data
         data = cur.fetchall()
-        
+
         column_names = [desc[0] for desc in cur.description]
 
         conn.commit()
@@ -37,6 +33,7 @@ def query_db(sql: str, db = db):
         df = pd.DataFrame(data=data, columns=column_names)
 
         return df
+
 
 def risk_level(x):
     '''
@@ -56,32 +53,42 @@ def risk_level(x):
         output = 6
     else:
         output = 7
-    return output 
+    return output
 
 
 # select us covid19 data from postgresql, and convert it into pandas dataframe
 df_us_latest = query_db("select * from covid19_us where report_date = (select max(report_date) from covid19_us)")
 df_us_latest['risk_level'] = df_us_latest['confirmed'].apply(lambda x: risk_level(x))
-fig1 = px.scatter_mapbox(df_us_latest, lat='lat', lon='lon', hover_name='province_state', hover_data=['confirmed','deaths','report_date'],
-                        color_discrete_sequence=["fuchsia"], zoom=3, title="US Covid19", 
-                        color='risk_level', mapbox_style="open-street-map")
+fig1 = px.scatter_mapbox(df_us_latest, lat='lat', lon='lon', hover_name='province_state',
+                         hover_data=['confirmed', 'deaths', 'report_date'],
+                         color_discrete_sequence=["fuchsia"], zoom=3, title="US Covid19",
+                         color='risk_level', mapbox_style="open-street-map")
 
 st.title("Covid19 dashboard")
 st.plotly_chart(fig1)
 
-df_us = query_db("select report_date as ds,confirmed as y,province_state from covid19_us")
-df_us['ds'] = pd.to_datetime(df_us['ds'],format = "%Y-%m-%d")
-df_us['y'] = df_us['y'].astype('int')
+df_us = query_db("select report_date,confirmed,deaths,province_state from covid19_us")
 all_states = query_db("select province_state from covid19_us group by province_state")['province_state'].tolist()
 
 if all_states:
-    state = st.selectbox("Choose a state",all_states)
-    df = df_us[df_us['province_state']==state]
-    print(df.dtypes) 
-    m = Prophet()
-    m.fit(df)
-    future = m.make_future_dataframe(periods=60)
-    forecast = m.predict(future)
-    fig2 = plot_plotly(m, forecast)
+    state = st.selectbox("Choose a state", all_states)
+    df = df_us[df_us['province_state'] == state]
+    fig2 = px.scatter(df, x='report_date', y=['confirmed', 'deaths'])
     st.plotly_chart(fig2)
+
+# df_us = query_db("select report_date as ds,confirmed as y,province_state from covid19_us")
+# df_us['ds'] = pd.to_datetime(df_us['ds'],format = "%Y-%m-%d")
+# df_us['y'] = df_us['y'].astype('int')
+# all_states = query_db("select province_state from covid19_us group by province_state")['province_state'].tolist()
+#
+# if all_states:
+#     state = st.selectbox("Choose a state",all_states)
+#     df = df_us[df_us['province_state']==state]
+#     print(df.dtypes)
+#     m = Prophet()
+#     m.fit(df)
+#     future = m.make_future_dataframe(periods=60)
+#     forecast = m.predict(future)
+#     fig2 = plot_plotly(m, forecast)
+#     st.plotly_chart(fig2)
 
