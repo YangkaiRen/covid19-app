@@ -3,6 +3,7 @@
 
 import os
 import pandas as pd
+import pymysql
 from datetime import datetime,timedelta
 from sqlalchemy import create_engine
 from configparser import ConfigParser
@@ -19,23 +20,34 @@ def get_config(filename='db.ini', section='rds'):
         return {k: int(v) if k == 'port' else v for k, v in parser.items(section)}
     else:
         raise Exception('Section {0} not found in the {1} file'.format(section, filename))
-#{'host': 'database-1.cpj3j49dqd6l.us-east-2.rds.amazonaws.com',
-# 'port': 3306, 'database': 'covid19', 'user': 'admin',
-# 'password': 'cicd2021'}
-def get_engine(db):
-    engine = create_engine("mysql+pymysql://{}:{}@{}:{}/{}".format(db['user'],db['password'],db['host'],db['port'],db['database']))
+
+
+def get_engine(db_conf):
+    engine = create_engine("mysql+pymysql://{}:{}@{}:{}/{}".format(db_conf['user'],db_conf['password'],db_conf['host'],db_conf['port'],db_conf['database']))
     return engine
 
-def fetch_daily_dateframe(dt=datetime.now()-timedelta(days=1)):
-    url = BASE_URL.format(dt.strftime('%m-%d-%Y'))  #get url of new updat data
-    df = pd.read_csv(url)
-    df['report_date'] = dt.strftime('%Y-%m-%d')
-    df2 = df[['Province_State','Lat','Long_','Confirmed','Deaths','report_date']]
-    df2.columns = ['province_state','lat','lon','confirmed','deaths','report_date']
-    return df2
+def fetch_daily_dateframe(db_conf,before_days=1):
+    dt = datetime.now()-timedelta(days=before_days)
+    report_date = dt.strftime('%Y-%m-%d')
+    with pymysql.connect(**db_conf) as conn:
+        cur = conn.cursor()
+        cur.execute("select count(*) from covid19_us where report_date='{}'".format(report_date))
+        cnt = cur.fetchall()[0][0]
+        if cnt > 0:
+            print("{} data had existed".format(report_date))
+            return
+    try:
+        url = BASE_URL.format(dt.strftime('%m-%d-%Y'))
+        df = pd.read_csv(url)
+        df['report_date'] = report_date
+        df2 = df[['Province_State','Lat','Long_','Confirmed','Deaths','report_date']]
+        df2.columns = ['province_state','lat','lon','confirmed','deaths','report_date']
+        print("inserting into {} data".format(report_date))
+        df2.to_sql(name='covid19_us', con=get_engine(db_conf), if_exists='append',index=False)
+    except Exception as e:
+        print(e)
 
-
-def init_history_data(dir):
+def init_history_data(dir,db_conf):
     files = os.listdir(dir)
     dfs = []
     for file in files:
@@ -46,20 +58,15 @@ def init_history_data(dir):
             df2 = df[['Province_State','Lat','Long_','Confirmed','Deaths','report_date']]
             df2.columns = ['province_state','lat','lon','confirmed','deaths','report_date']
             dfs.append(df2)
-    return pd.concat(dfs, ignore_index=True)
+    df2 = pd.concat(dfs,ignore_index=True)
+    df2.to_sql(name='covid19_us', con=get_engine(db_conf), if_exists='append',index=False)
+
     
 
 
 
 
 if __name__ == '__main__':
-    engine = get_engine(get_config())
+    db_conf = get_config()
     # df = init_history_data('./')
-    df = fetch_daily_dateframe()
-    df.to_sql(name='covid19_us',con=engine,if_exists='append',index=False)
-    # print(engine)
-    # # print(df)
-    # dt = datetime.now() - timedelta(days=1)
-    # print(dt)
-    # url = BASE_URL.format(dt.strftime('%m-%d-%Y'))
-    # print(url)
+    fetch_daily_dateframe(db_conf)

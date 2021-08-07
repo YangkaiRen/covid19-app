@@ -9,6 +9,7 @@ from datetime import datetime
 import plotly.express as px 
 from dataprocessor import get_config
 
+
 db = get_config()
 
 def query_db(sql: str, db = db):
@@ -63,8 +64,15 @@ fig1 = px.scatter_mapbox(df_us_latest, lat='lat', lon='lon', hover_name='provinc
                         color_discrete_sequence=["fuchsia"], zoom=3, title="US Covid19", 
                         color='risk_level', mapbox_style="open-street-map")
 
-
+st.title("Covid19 dashboard")
 st.plotly_chart(fig1)
 
+df_us = query_db("select report_date,confirmed,deaths,province_state from covid19_us")
+all_states = query_db("select province_state from covid19_us group by province_state")['province_state'].tolist()
 
+if all_states:
+    state = st.selectbox("Choose a state",all_states)
+    df = df_us[df_us['province_state']==state]
+    fig2 = px.scatter(df,x='report_date',y=['confirmed','deaths'])
+    st.plotly_chart(fig2)
 
