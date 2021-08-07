@@ -1,26 +1,21 @@
 version: 0.0
 os: linux
 files:
-  - source: /
-    destination: /home/ec2-user/covid19-app
+  - source: /           #github
+    destination: /home/ec2-user/covid19-app    #云端aws ec2
 
-hooks:
+hooks:     #部署
+  ApplicationStop: 
+    - location: scripts/stop.sh
+      timeout: 300
+      runas: ec2-user
+
   BeforeInstall:
     - location: scripts/setup.sh
       timeout: 300
       runas: ec2-user  
 
-#  AfterInstall:
-#    - location: scripts/test.sh
-#      timeout: 300
-#      runas: ec2-user
-
   ApplicationStart: 
     - location: scripts/start.sh
-      timeout: 300
-      runas: ec2-user
-
-  ApplicationStop: 
-    - location: scripts/stop.sh
       timeout: 300
       runas: ec2-user
