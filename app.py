@@ -14,7 +14,7 @@ db = get_config()
 
 def query_db(sql: str, db = db):
 
-    with pymysql.connect(**db) as conn:
+    with pymysql.connect(**db) as conn:  #connect mysql server
 
         # Open a cursor to perform database operations
         cur = conn.cursor()
