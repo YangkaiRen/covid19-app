@@ -8,6 +8,9 @@ import streamlit as st
 from datetime import datetime
 import plotly.express as px 
 from dataprocessor import get_config
+from prophet import Prophet
+from prophet.plot import plot_plotly
+
 
 db = get_config()
 
@@ -63,8 +66,22 @@ fig1 = px.scatter_mapbox(df_us_latest, lat='lat', lon='lon', hover_name='provinc
                         color_discrete_sequence=["fuchsia"], zoom=3, title="US Covid19", 
                         color='risk_level', mapbox_style="open-street-map")
 
-st.title("COVID-19 dashboard")
+st.title("Covid19 dashboard")
 st.plotly_chart(fig1)
 
+df_us = query_db("select report_date as ds,confirmed as y,province_state from covid19_us")
+df_us['ds'] = pd.to_datetime(df_us['ds'],format = "%Y-%m-%d")
+df_us['y'] = df_us['y'].astype('int')
+all_states = query_db("select province_state from covid19_us group by province_state")['province_state'].tolist()
 
+if all_states:
+    state = st.selectbox("Choose a state",all_states)
+    df = df_us[df_us['province_state']==state]
+    print(df.dtypes) 
+    m = Prophet()
+    m.fit(df)
+    future = m.make_future_dataframe(periods=60)
+    forecast = m.predict(future)
+    fig2 = plot_plotly(m, forecast)
+    st.plotly_chart(fig2)
 
