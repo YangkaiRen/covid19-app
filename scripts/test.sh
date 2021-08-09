@@ -2,4 +2,4 @@
 
 
 cd /home/ec2-user/covid19-app
-python datatest.py
+python3 datatest.py
